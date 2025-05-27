@@ -4,60 +4,42 @@ using PhoneManagement.Enums;
 namespace PhoneManagement.Common
 {
     /// <summary>
-    /// Quản lý trạng thái Enabled của các nút dựa trên ModerationStatus của điện thoại.
+    /// Lớp quản lý trạng thái Enabled của các nút dựa trên điện thoại được chọn.
     /// </summary>
     public class ButtonStateManager
     {
-        private readonly Button _btnUpdate;
-        private readonly Button _btnDelete;
-        private readonly Button _btnApprove;
-        private readonly Button _btnReject;
+        /// <summary>
+        /// Từ điển ánh xạ nút với điều kiện bật/tắt dựa trên PhoneDto.
+        /// </summary>
+        private readonly Dictionary<Button, Func<PhoneDto, bool>> _buttonConditions;
 
         /// <summary>
         /// Khởi tạo ButtonStateManager với các nút cần quản lý.
         /// </summary>
-        /// <param name="btnUpdate">Nút Cập nhật.</param>
-        /// <param name="btnDelete">Nút Xóa.</param>
-        /// <param name="btnApprove">Nút Duyệt.</param>
-        /// <param name="btnReject">Nút Hủy duyệt.</param>
+        /// <param name="btnUpdate">Nút cập nhật điện thoại.</param>
+        /// <param name="btnDelete">Nút xóa điện thoại.</param>
+        /// <param name="btnApprove">Nút duyệt điện thoại.</param>
+        /// <param name="btnReject">Nút hủy duyệt điện thoại.</param>
         public ButtonStateManager(Button btnUpdate, Button btnDelete, Button btnApprove, Button btnReject)
         {
-            _btnUpdate = btnUpdate;
-            _btnDelete = btnDelete;
-            _btnApprove = btnApprove;
-            _btnReject = btnReject;
+            _buttonConditions = new Dictionary<Button, Func<PhoneDto, bool>>
+            {
+                { btnUpdate, phone => phone is not null && phone.ModerationStatus != ModerationStatus.Approved  },
+                { btnDelete, phone => phone is not null && phone.ModerationStatus != ModerationStatus.Approved  },
+                { btnApprove, phone => phone is not null && phone.ModerationStatus != ModerationStatus.Approved },
+                { btnReject, phone => phone is not null && phone.ModerationStatus != ModerationStatus.Rejected }
+            };
         }
 
         /// <summary>
-        /// Cập nhật trạng thái Enabled của các nút dựa trên trạng thái kiểm duyệt của điện thoại.
+        /// Cập nhật trạng thái Enabled của các nút dựa trên điện thoại được chọn.
         /// </summary>
-        /// <param name="phone">Đối tượng PhoneDto, có thể null nếu không có dòng được chọn.</param>
+        /// <param name="phone">Đối tượng PhoneDto được chọn; null nếu không có lựa chọn.</param>
         public void UpdateButtonStates(PhoneDto? phone)
         {
-            // Mặc định vô hiệu hóa tất cả các nút nếu không có dòng chọn
-            _btnUpdate.Enabled = false;
-            _btnDelete.Enabled = false;
-            _btnApprove.Enabled = false;
-            _btnReject.Enabled = false;
-
-            if (phone != null)
+            foreach (var pair in _buttonConditions)
             {
-                var status = phone.ModerationStatus;
-
-                if (status == ModerationStatus.Approved)
-                {
-                    _btnUpdate.Enabled = false;
-                    _btnDelete.Enabled = false;
-                    _btnApprove.Enabled = false;
-                    _btnReject.Enabled = true;
-                }
-                else
-                {
-                    _btnUpdate.Enabled = true;
-                    _btnDelete.Enabled = true;
-                    _btnApprove.Enabled = true;
-                    _btnReject.Enabled = false;
-                }
+                pair.Key.Enabled = pair.Value(phone);
             }
         }
     }

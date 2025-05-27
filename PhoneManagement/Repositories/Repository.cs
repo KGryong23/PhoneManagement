@@ -10,7 +10,7 @@ namespace PhoneManagement.Repositories
     /// </summary>
     public abstract class Repository<T> : IRepository<T> where T : class
     {
-        private readonly PhoneContext _context;
+        protected readonly PhoneContext _context;
         private readonly DbSet<T> _dbSet;
 
         protected Repository(PhoneContext context)
@@ -86,8 +86,14 @@ namespace PhoneManagement.Repositories
             return new PagedResult<T>(data, totalRecords);
         }
 
+        /// <summary>
+        /// Hàm lưu các thay đổi vào cơ sở dữ liệu
+        /// </summary>
         public async Task<bool> SaveChangesAsync() => await _context.SaveChangesAsync() > 0;
 
+        /// <summary>
+        /// Lấy các bản ghi theo điều kiện
+        /// </summary>
         public async Task<IEnumerable<T>> FindAllAsync(Expression<Func<T, bool>> exp) => await _dbSet.Where(exp).ToListAsync();
         
     }

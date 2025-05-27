@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using PhoneManagement.Common;
+﻿using PhoneManagement.Common;
 using System.Linq.Expressions;
 
 namespace PhoneManagement.Repositories

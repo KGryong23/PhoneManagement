@@ -78,9 +78,7 @@ namespace PhoneManagement.Services
             if (existingPhones.Any())
                 throw new ArgumentException("Mẫu điện thoại đã tồn tại.", nameof(dto.Model));
 
-            var phone = dto.ToEntity();
-            await _phoneRepository.AddAsync(phone);
-            return await _phoneRepository.SaveChangesAsync();
+            return await _phoneRepository.AddAsync(dto);
         }
 
         /// <summary>

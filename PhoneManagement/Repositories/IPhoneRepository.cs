@@ -1,4 +1,5 @@
-﻿using PhoneManagement.Entitys;
+﻿using PhoneManagement.Dtos;
+using PhoneManagement.Entitys;
 
 namespace PhoneManagement.Repositories
 {
@@ -7,5 +8,6 @@ namespace PhoneManagement.Repositories
     /// </summary>
     public interface IPhoneRepository : IRepository<Phone>
     {
+        Task<bool> AddAsync(PhoneDto dto);
     }
 }

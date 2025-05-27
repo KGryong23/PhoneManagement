@@ -1,18 +1,28 @@
-﻿using PhoneManagement.Dtos;
+﻿using PhoneManagement.Common;
+using PhoneManagement.Dtos;
+using PhoneManagement.Enums;
 
 namespace PhoneManagement
 {
+    /// <summary>
+    /// Form để hiển thị chi tiết thông tin điện thoại.
+    /// </summary>
     public partial class FormPhoneDetail : Form
     {
         private readonly PhoneDto _phone;
 
+        /// <summary>
+        /// Ham khởi tạo FormPhoneDetail với đối tượng PhoneDto.
+        /// </summary>
         public FormPhoneDetail(PhoneDto phone)
         {
             InitializeComponent();
             _phone = phone;
             LoadData();
         }
-
+        /// <summary>
+        /// Tải dữ liệu từ đối tượng PhoneDto và hiển thị lên các điều khiển trên form.
+        /// </summary>
         private void LoadData()
         {
             try
@@ -27,10 +37,12 @@ namespace PhoneManagement
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi: {ex.Message}");
+                MessageHelper.ShowMessage(string.Format(AppResources.UnknownError, ex.Message), MessageType.Error);
             }
         }
-
+        /// <summary>
+        /// Hàm xử lý sự kiện khi nhấn nút Close: đóng form.
+        /// </summary>
         private void btnClose_Click(object sender, EventArgs e)
         {
             Close();

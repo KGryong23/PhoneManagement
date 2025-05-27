@@ -1,5 +1,6 @@
 ﻿using PhoneManagement.Common;
 using PhoneManagement.Dtos;
+using PhoneManagement.Enums;
 using PhoneManagement.Services;
 
 namespace PhoneManagement
@@ -22,50 +23,46 @@ namespace PhoneManagement
         /// <summary>
         /// Trang hiện tại trong phân trang.
         /// </summary>
-        private int _currentPage = 1;
-
-        /// <summary>
-        /// Số bản ghi trên mỗi trang (cố định).
-        /// </summary>
-        private readonly int _pageSize = 13;
+        private int _currentPage;
 
         /// <summary>
         /// Tổng số bản ghi trong cơ sở dữ liệu.
         /// </summary>
-        private int _totalRecords = 0;
+        private int _totalRecords;
 
         /// <summary>
-        /// Quản lý trạng thái Enabled của các nút.
+        /// Quản lý trạng thái Enabled của các nút (Update, Delete, Approve, Reject).
         /// </summary>
         private readonly ButtonStateManager _buttonStateManager;
 
         /// <summary>
-        /// Cấu hình các cột của DataGridView.
+        /// Cấu hình các cột của DataGridView để hiển thị dữ liệu điện thoại.
         /// </summary>
         private readonly DataGridViewConfigurator _dataGridViewConfigurator;
 
         /// <summary>
-        /// Khởi tạo FormPhone, inject các dịch vụ và cấu hình giao diện.
+        /// Khởi tạo FormPhone với các dịch vụ được tiêm và cấu hình giao diện.
         /// </summary>
-        /// <param name="phoneService">Dịch vụ điện thoại.</param>
-        /// <param name="brandService">Dịch vụ thương hiệu.</param>
+        /// <param name="phoneService">Dịch vụ xử lý logic nghiệp vụ cho điện thoại.</param>
+        /// <param name="brandService">Dịch vụ xử lý logic nghiệp vụ cho thương hiệu.</param>
         public FormPhone(IPhoneService phoneService, IBrandService brandService)
         {
             _phoneService = phoneService;
             _brandService = brandService;
+            _currentPage = 1;
+            _totalRecords = 0;
 
             InitializeComponent();
 
             _buttonStateManager = new ButtonStateManager(btnUpdate, btnDelete, btnApprove, btnReject);
             _dataGridViewConfigurator = new DataGridViewConfigurator(dgvPhones);
 
-
             ConfigureDataGridView();
             LoadPhonesAsync();
         }
 
         /// <summary>
-        /// Cấu hình DataGridView để chỉ cho phép chọn một dòng.
+        /// Cấu hình DataGridView để chỉ cho phép chọn một dòng và bật chế độ chọn toàn bộ dòng.
         /// </summary>
         private void ConfigureDataGridView()
         {
@@ -74,7 +71,7 @@ namespace PhoneManagement
         }
 
         /// <summary>
-        /// Tải danh sách điện thoại phân trang, cập nhật DataGridView và thông tin trang.
+        /// Tải danh sách điện thoại phân trang bất đồng bộ, cập nhật DataGridView và thông tin trang.
         /// </summary>
         private async void LoadPhonesAsync()
         {
@@ -83,31 +80,33 @@ namespace PhoneManagement
                 var query = new BaseQuery
                 {
                     Keyword = txtKeyword.Text,
-                    Skip = (_currentPage - 1) * _pageSize,
-                    Take = _pageSize
+                    Skip = (_currentPage - 1) * AppConstants.PageSize,
+                    Take = AppConstants.PageSize
                 };
 
                 var result = await _phoneService.GetPagedAsync(query);
                 _totalRecords = result.TotalRecords;
-                var currentRecords = result.Data.Count();
+                int currentRecords = result.Data.Count();
                 dgvPhones.DataSource = result.Data.ToList();
 
                 _dataGridViewConfigurator.ConfigureColumns();
 
-                int totalPages = (int)Math.Ceiling((double)_totalRecords / _pageSize);
-                lblPageInfo.Text = $"Trang {_currentPage} / {totalPages} ({currentRecords}/{_totalRecords} bản ghi)";
+                int totalPages = (int)Math.Ceiling((double)_totalRecords / AppConstants.PageSize);
+                lblPageInfo.Text = string.Format(AppResources.PageInfoFormat, _currentPage, totalPages, currentRecords, _totalRecords);
                 btnPrevPage.Enabled = _currentPage > 1;
                 btnNextPage.Enabled = _currentPage < totalPages;
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Error);
             }
         }
 
         /// <summary>
-        /// Mở form thêm mới điện thoại và làm mới danh sách nếu thêm thành công.
+        /// Xử lý sự kiện khi nhấn nút Create: mở form thêm mới điện thoại và làm mới danh sách nếu thêm thành công.
         /// </summary>
+        /// <param name="sender">Đối tượng gửi sự kiện (nút Create).</param>
+        /// <param name="e">Thông tin sự kiện.</param>
         private async void btnCreate_Click(object sender, EventArgs e)
         {
             try
@@ -117,24 +116,26 @@ namespace PhoneManagement
                 {
                     await _phoneService.AddAsync(formInsertOrUpdate.Phone);
                     LoadPhonesAsync();
-                    MessageBox.Show("Thêm điện thoại thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageHelper.ShowMessage(AppResources.AddPhoneSuccess, MessageType.Success);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Error);
             }
         }
 
         /// <summary>
-        /// Mở form cập nhật điện thoại được chọn và làm mới danh sách nếu cập nhật thành công.
+        /// Xử lý sự kiện khi nhấn nút Update: mở form cập nhật điện thoại được chọn và làm mới danh sách nếu cập nhật thành công.
         /// </summary>
+        /// <param name="sender">Đối tượng gửi sự kiện (nút Update).</param>
+        /// <param name="e">Thông tin sự kiện.</param>
         private async void btnUpdate_Click(object sender, EventArgs e)
         {
             try
             {
                 if (dgvPhones.SelectedRows.Count == 0)
-                    throw new ArgumentException("Vui lòng chọn một điện thoại để cập nhật.");
+                    throw new ArgumentException(AppResources.SelectPhoneToUpdate);
 
                 var phone = (PhoneDto)dgvPhones.SelectedRows[0].DataBoundItem;
                 var formInsertOrUpdate = new FormPhoneInsertOrUpdate(_brandService, phone);
@@ -142,116 +143,123 @@ namespace PhoneManagement
                 {
                     await _phoneService.UpdateAsync(formInsertOrUpdate.Phone);
                     LoadPhonesAsync();
-                    MessageBox.Show("Cập nhật thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageHelper.ShowMessage(AppResources.UpdatePhoneSuccess, MessageType.Success);
                 }
             }
             catch (ArgumentException ex)
             {
-                MessageBox.Show($"Lỗi: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Warning);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi không xác định: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Error);
             }
         }
 
         /// <summary>
-        /// Xóa điện thoại được chọn sau khi xác nhận và làm mới danh sách.
+        /// Xử lý sự kiện khi nhấn nút Delete: xóa điện thoại được chọn sau khi xác nhận và làm mới danh sách.
         /// </summary>
+        /// <param name="sender">Đối tượng gửi sự kiện (nút Delete).</param>
+        /// <param name="e">Thông tin sự kiện.</param>
         private async void btnDelete_Click(object sender, EventArgs e)
         {
             try
             {
                 if (dgvPhones.SelectedRows.Count == 0)
-                    throw new ArgumentException("Vui lòng chọn một điện thoại để xóa.");
+                    throw new ArgumentException(AppResources.SelectPhoneToDelete);
 
                 var phone = (PhoneDto)dgvPhones.SelectedRows[0].DataBoundItem;
-                var result = MessageBox.Show($"Bạn có chắc chắn muốn xóa điện thoại {phone.Model}?",
-                    "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                var result = MessageHelper.ShowMessage(string.Format(AppResources.ConfirmDeletePhone, phone.Model), MessageType.Confirm);
                 if (result == DialogResult.Yes)
                 {
                     await _phoneService.DeleteAsync(phone.Id);
                     LoadPhonesAsync();
-                    MessageBox.Show("Xóa thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageHelper.ShowMessage(AppResources.DeletePhoneSuccess, MessageType.Success);
                 }
             }
             catch (ArgumentException ex)
             {
-                MessageBox.Show($"Lỗi: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Warning);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi không xác định: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Error);
             }
         }
 
         /// <summary>
-        /// Duyệt điện thoại được chọn và làm mới danh sách nếu thành công.
+        /// Xử lý sự kiện khi nhấn nút Approve: duyệt điện thoại được chọn và làm mới danh sách nếu thành công.
         /// </summary>
+        /// <param name="sender">Đối tượng gửi sự kiện (nút Approve).</param>
+        /// <param name="e">Thông tin sự kiện.</param>
         private async void btnApprove_Click(object sender, EventArgs e)
         {
             try
             {
                 if (dgvPhones.SelectedRows.Count == 0)
-                    throw new ArgumentException("Vui lòng chọn một điện thoại để duyệt.");
+                    throw new ArgumentException(AppResources.SelectPhoneToApprove);
 
                 var phone = (PhoneDto)dgvPhones.SelectedRows[0].DataBoundItem;
                 var success = await _phoneService.Approve(phone.Id);
                 if (success)
                 {
                     LoadPhonesAsync();
-                    MessageBox.Show("Duyệt thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageHelper.ShowMessage(AppResources.ApprovePhoneSuccess, MessageType.Success);
                 }
                 else
                 {
-                    MessageBox.Show("Bản ghi không tồn tại!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageHelper.ShowMessage(AppResources.RecordNotFound, MessageType.Error);
                 }
             }
             catch (ArgumentException ex)
             {
-                MessageBox.Show($"Lỗi: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Warning);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi không xác định: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Error);
             }
         }
 
         /// <summary>
-        /// Hủy duyệt điện thoại được chọn và làm mới danh sách nếu thành công.
+        /// Xử lý sự kiện khi nhấn nút Reject: hủy duyệt điện thoại được chọn và làm mới danh sách nếu thành công.
         /// </summary>
+        /// <param name="sender">Đối tượng gửi sự kiện (nút Reject).</param>
+        /// <param name="e">Thông tin sự kiện.</param>
         private async void btnReject_Click(object sender, EventArgs e)
         {
             try
             {
                 if (dgvPhones.SelectedRows.Count == 0)
-                    throw new ArgumentException("Vui lòng chọn một điện thoại để hủy duyệt.");
+                    throw new ArgumentException(AppResources.SelectPhoneToReject);
 
                 var phone = (PhoneDto)dgvPhones.SelectedRows[0].DataBoundItem;
                 var success = await _phoneService.Reject(phone.Id);
                 if (success)
                 {
                     LoadPhonesAsync();
-                    MessageBox.Show("Hủy duyệt thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageHelper.ShowMessage(AppResources.RejectPhoneSuccess, MessageType.Success);
                 }
                 else
                 {
-                    MessageBox.Show("Bản ghi không tồn tại!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageHelper.ShowMessage(AppResources.RecordNotFound, MessageType.Error);
                 }
             }
             catch (ArgumentException ex)
             {
-                MessageBox.Show($"Lỗi: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Warning);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi không xác định: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Error);
             }
         }
 
         /// <summary>
-        /// Tìm kiếm điện thoại theo từ khóa và làm mới danh sách.
+        /// Xử lý sự kiện khi nhấn nút Search: tìm kiếm điện thoại theo từ khóa và làm mới danh sách.
         /// </summary>
+        /// <param name="sender">Đối tượng gửi sự kiện (nút Search).</param>
+        /// <param name="e">Thông tin sự kiện.</param>
         private void btnSearch_Click(object sender, EventArgs e)
         {
             try
@@ -261,13 +269,15 @@ namespace PhoneManagement
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Error);
             }
         }
 
         /// <summary>
-        /// Chuyển về trang trước và làm mới danh sách.
+        /// Xử lý sự kiện khi nhấn nút Previous Page: chuyển về trang trước và làm mới danh sách.
         /// </summary>
+        /// <param name="sender">Đối tượng gửi sự kiện (nút Previous Page).</param>
+        /// <param name="e">Thông tin sự kiện.</param>
         private void btnPrevPage_Click(object sender, EventArgs e)
         {
             try
@@ -280,18 +290,20 @@ namespace PhoneManagement
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Error);
             }
         }
 
         /// <summary>
-        /// Chuyển đến trang tiếp theo và làm mới danh sách.
+        /// Xử lý sự kiện khi nhấn nút Next Page: chuyển đến trang tiếp theo và làm mới danh sách.
         /// </summary>
+        /// <param name="sender">Đối tượng gửi sự kiện (nút Next Page).</param>
+        /// <param name="e">Thông tin sự kiện.</param>
         private void btnNextPage_Click(object sender, EventArgs e)
         {
             try
             {
-                int totalPages = (int)Math.Ceiling((double)_totalRecords / _pageSize);
+                int totalPages = (int)Math.Ceiling((double)_totalRecords / AppConstants.PageSize);
                 if (_currentPage < totalPages)
                 {
                     _currentPage++;
@@ -300,35 +312,39 @@ namespace PhoneManagement
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Error);
             }
         }
 
         /// <summary>
-        /// Xóa từ khóa tìm kiếm và làm mới danh sách.
+        /// Xử lý sự kiện khi nhấn nút Clear Inputs: xóa từ khóa tìm kiếm và làm mới danh sách.
         /// </summary>
+        /// <param name="sender">Đối tượng gửi sự kiện (nút Clear Inputs).</param>
+        /// <param name="e">Thông tin sự kiện.</param>
         private void btnClearInputs_Click(object sender, EventArgs e)
         {
             try
             {
-                txtKeyword.Text = "";
+                txtKeyword.Text = string.Empty;
                 LoadPhonesAsync();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Error);
             }
         }
 
         /// <summary>
-        /// Mở form chi tiết để xem thông tin điện thoại được chọn.
+        /// Xử lý sự kiện khi nhấn nút View Detail: mở form chi tiết để xem thông tin điện thoại được chọn.
         /// </summary>
+        /// <param name="sender">Đối tượng gửi sự kiện (nút View Detail).</param>
+        /// <param name="e">Thông tin sự kiện.</param>
         private void btnViewDetail_Click(object sender, EventArgs e)
         {
             try
             {
                 if (dgvPhones.SelectedRows.Count == 0)
-                    throw new ArgumentException("Vui lòng chọn một điện thoại để xem chi tiết.");
+                    throw new ArgumentException(AppResources.SelectPhoneToViewDetail);
 
                 var phone = (PhoneDto)dgvPhones.SelectedRows[0].DataBoundItem;
                 var formDetail = new FormPhoneDetail(phone);
@@ -336,17 +352,19 @@ namespace PhoneManagement
             }
             catch (ArgumentException ex)
             {
-                MessageBox.Show($"Lỗi: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Warning);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi không xác định: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageHelper.ShowMessage(ex.Message, MessageType.Error);
             }
         }
 
         /// <summary>
-        /// Cập nhật trạng thái các nút khi chọn một dòng khác trong DataGridView.
+        /// Xử lý sự kiện khi thay đổi lựa chọn trong DataGridView: cập nhật trạng thái các nút.
         /// </summary>
+        /// <param name="sender">Đối tượng gửi sự kiện (DataGridView).</param>
+        /// <param name="e">Thông tin sự kiện.</param>
         private void dgvPhones_SelectionChanged(object sender, EventArgs e)
         {
             var phone = dgvPhones.SelectedRows.Count > 0
