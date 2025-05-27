@@ -137,7 +137,12 @@ namespace PhoneManagement
                 if (dgvPhones.SelectedRows.Count == 0)
                     throw new ArgumentException(AppResources.SelectPhoneToUpdate);
 
-                var phone = (PhoneDto)dgvPhones.SelectedRows[0].DataBoundItem;
+                var selectedPhone = (PhoneDto)dgvPhones.SelectedRows[0].DataBoundItem;
+                // Tải lại dữ liệu mới nhất từ cơ sở dữ liệu
+                var phone = await _phoneService.GetByIdAsync(selectedPhone.Id);
+                if (phone == null)
+                    throw new ArgumentException(AppResources.RecordNotFound);
+
                 var formInsertOrUpdate = new FormPhoneInsertOrUpdate(_brandService, phone);
                 if (formInsertOrUpdate.ShowDialog() == DialogResult.OK)
                 {

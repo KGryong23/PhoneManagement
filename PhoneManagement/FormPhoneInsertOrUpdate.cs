@@ -108,10 +108,12 @@ namespace PhoneManagement
             }
             catch (ArgumentException ex)
             {
+               
                 MessageHelper.ShowMessage(ex.Message, MessageType.Warning);
             }
             catch (Exception ex)
             {
+                
                 MessageHelper.ShowMessage(string.Format(AppResources.UnknownError, ex.Message), MessageType.Error);
             }
         }
